@@ -598,11 +598,7 @@ html[data-theme="light"] .drop>.edge{background:conic-gradient(from var(--edge-a
 
       <section class="card glass lo rv" id="chat">
         <div class="card-h"><div><h2>Ask AI about this PDF</h2><p class="cap">Chat with your document. Uses Groq (free) — paste your API key once.</p></div></div>
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
-          <input id="gkey" type="password" placeholder="Groq API key (gsk_...)" style="flex:1;min-width:200px;height:40px;padding:0 14px;border-radius:999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:var(--ink);font:400 .9rem var(--f-body);outline:none">
-          <button class="btn sm" type="button" id="saveKey">Save key</button>
-        </div>
-        <small class="d-n" style="display:block;margin-bottom:12px">Get a free key at console.groq.com. Stored only in your browser.</small>
+        <small class="d-n" style="display:block;margin-bottom:12px">AI runs on the server. No API key needed from you.</small>
         <div id="chatLog" style="max-height:360px;overflow:auto;display:grid;gap:10px;margin-bottom:12px"></div>
         <div style="display:flex;gap:8px">
           <input id="chatQ" type="text" placeholder="Ask a question about this PDF..." style="flex:1;height:46px;padding:0 18px;border-radius:999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:var(--ink);font:400 1rem var(--f-body);outline:none">
@@ -1315,11 +1311,7 @@ function addChat(role,text){
 }
 function loadKey(){try{return localStorage.getItem('cp-groq-key')||''}catch(e){return ''}}
 function saveKey(k){try{localStorage.setItem('cp-groq-key',k)}catch(e){}}
-$('#saveKey').addEventListener('click',function(){var k=$('#gkey').value.trim();if(!k)return;saveKey(k);addChat('assistant','API key saved. Ask me anything about the PDF.');});
-$('#gkey').value=loadKey();
 async function askAI(q){
-  var key=loadKey()||$('#gkey').value.trim();
-  if(!key){addChat('assistant','Please paste your Groq API key above and click Save key.');return}
   if(!cur){addChat('assistant','Load a PDF first.');return}
   addChat('user',q);
   var typing=addChat('assistant','Thinking...');
@@ -1327,24 +1319,10 @@ async function askAI(q){
 
 ').slice(0,12000);
   try{
-    var res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-      method:'POST',
-      headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'llama-3.3-70b-versatile',
-        messages:[
-          {role:'system',content:'You are a helpful assistant answering questions about a PDF document. Use only the provided document text. Be concise and cite page numbers when possible.'},
-          {role:'user',content:'Document text:
-'+ctx+'
-
-Question: '+q}
-        ],
-        temperature:0.2,max_tokens:800
-      })
-    });
+    var res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q:q,ctx:ctx})});
     var j=await res.json();
-    if(!res.ok){typing.textContent='Error: '+(j.error&&j.error.message?j.error.message:res.status);return}
-    typing.textContent=j.choices[0].message.content;
+    if(!res.ok||j.error){typing.textContent='Error: '+(j.error||res.status);return}
+    typing.textContent=j.answer;
   }catch(e){typing.textContent='Network error: '+e.message}
 }
 $('#chatSend').addEventListener('click',function(){var q=$('#chatQ').value.trim();if(!q)return;$('#chatQ').value='';askAI(q)});
