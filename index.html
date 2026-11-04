@@ -596,6 +596,20 @@ html[data-theme="light"] .drop>.edge{background:conic-gradient(from var(--edge-a
         <div class="hits" id="hits"></div>
       </section>
 
+      <section class="card glass lo rv" id="chat">
+        <div class="card-h"><div><h2>Ask AI about this PDF</h2><p class="cap">Chat with your document. Uses Groq (free) — paste your API key once.</p></div></div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+          <input id="gkey" type="password" placeholder="Groq API key (gsk_...)" style="flex:1;min-width:200px;height:40px;padding:0 14px;border-radius:999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:var(--ink);font:400 .9rem var(--f-body);outline:none">
+          <button class="btn sm" type="button" id="saveKey">Save key</button>
+        </div>
+        <small class="d-n" style="display:block;margin-bottom:12px">Get a free key at console.groq.com. Stored only in your browser.</small>
+        <div id="chatLog" style="max-height:360px;overflow:auto;display:grid;gap:10px;margin-bottom:12px"></div>
+        <div style="display:flex;gap:8px">
+          <input id="chatQ" type="text" placeholder="Ask a question about this PDF..." style="flex:1;height:46px;padding:0 18px;border-radius:999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:var(--ink);font:400 1rem var(--f-body);outline:none">
+          <button class="btn primary" type="button" id="chatSend">Ask</button>
+        </div>
+      </section>
+
       <section class="how" id="how" aria-label="How it works">
         <div class="step glass lo rv"><div class="n">1</div><h3>Extract</h3><p>PDF.js pulls the text layer from every page, inside your browser tab.</p></div>
         <div class="step glass lo rv"><div class="n">2</div><h3>Rank</h3><p>Common words are dropped, the rest are counted, and plurals are merged.</p></div>
@@ -1285,6 +1299,56 @@ thm.addEventListener('click',function(){
   dock.addEventListener('pointermove',function(e){if(e.pointerType==='touch')return;px=e.clientX;kick()});
   dock.addEventListener('pointerleave',function(){px=null;kick()});
 })();
+
+/* ---------- AI chat ---------- */
+var chatHistory=[];
+function addChat(role,text){
+  var log=$('#chatLog');
+  var div=document.createElement('div');
+  div.style.cssText='padding:10px 14px;border-radius:16px;font-size:.95rem;line-height:1.5;max-width:92%;white-space:pre-wrap;overflow-wrap:anywhere';
+  if(role==='user'){div.style.background='rgba(255,255,255,.18)';div.style.justifySelf='end';div.style.marginLeft='auto'}
+  else{div.style.background='rgba(255,255,255,.08)'}
+  div.textContent=text;
+  log.appendChild(div);
+  log.scrollTop=log.scrollHeight;
+  return div;
+}
+function loadKey(){try{return localStorage.getItem('cp-groq-key')||''}catch(e){return ''}}
+function saveKey(k){try{localStorage.setItem('cp-groq-key',k)}catch(e){}}
+$('#saveKey').addEventListener('click',function(){var k=$('#gkey').value.trim();if(!k)return;saveKey(k);addChat('assistant','API key saved. Ask me anything about the PDF.');});
+$('#gkey').value=loadKey();
+async function askAI(q){
+  var key=loadKey()||$('#gkey').value.trim();
+  if(!key){addChat('assistant','Please paste your Groq API key above and click Save key.');return}
+  if(!cur){addChat('assistant','Load a PDF first.');return}
+  addChat('user',q);
+  var typing=addChat('assistant','Thinking...');
+  var ctx=cur.doc.pages.join('
+
+').slice(0,12000);
+  try{
+    var res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'llama-3.3-70b-versatile',
+        messages:[
+          {role:'system',content:'You are a helpful assistant answering questions about a PDF document. Use only the provided document text. Be concise and cite page numbers when possible.'},
+          {role:'user',content:'Document text:
+'+ctx+'
+
+Question: '+q}
+        ],
+        temperature:0.2,max_tokens:800
+      })
+    });
+    var j=await res.json();
+    if(!res.ok){typing.textContent='Error: '+(j.error&&j.error.message?j.error.message:res.status);return}
+    typing.textContent=j.choices[0].message.content;
+  }catch(e){typing.textContent='Network error: '+e.message}
+}
+$('#chatSend').addEventListener('click',function(){var q=$('#chatQ').value.trim();if(!q)return;$('#chatQ').value='';askAI(q)});
+$('#chatQ').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();$('#chatSend').click()}});
 
 /* first state: the example report, clearly labelled */
 render(SAMPLE,false);
