@@ -521,7 +521,7 @@ html[data-theme="light"] .drop>.edge{background:conic-gradient(from var(--edge-a
               <strong class="d-t">Drop a PDF here</strong>
               <span class="d-s">or</span>
               <span class="btn primary">Choose a file</span>
-              <small class="d-n">Up to 50 MB. Read in memory, never uploaded.</small>
+              <small class="d-n">Up to 200 MB. Read in memory, never uploaded.</small>
             </div>
             <div class="busy" id="busy" hidden>
               <strong class="d-t" id="busyT">Reading your PDF</strong>
@@ -625,7 +625,7 @@ html[data-theme="light"] .drop>.edge{background:conic-gradient(from var(--edge-a
 'use strict';
 var $=function(s){return document.querySelector(s)};
 var WORKER_URL='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-var MAXP=500, MAXB=50*1024*1024;
+var MAXP=2000, MAXB=200*1024*1024;
 var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- sample ---------- */
@@ -873,7 +873,7 @@ async function handleFile(file){
   if(!file)return;
   $('#err').hidden=true;
   if(!/\.pdf$/i.test(file.name)&&file.type!=='application/pdf'){showErr('That file is not a PDF. Choose a file that ends in .pdf.');return}
-  if(file.size>MAXB){showErr('This file is larger than 50 MB. Try a smaller PDF or split it first.');return}
+  if(file.size>MAXB){showErr('This file is larger than 200 MB. Try a smaller PDF or split it first.');return}
   if(typeof pdfjsLib==='undefined'){showErr('The PDF reader did not load. Check your connection and reload the page.');return}
   var t0=performance.now();
   setBusy(true,'Reading your PDF','Opening '+file.name,2);
